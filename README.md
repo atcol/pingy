@@ -6,7 +6,7 @@ A fast &amp; simple website monitor running in [Shuttle](https://shuttle.rs).
 Pingy is designed to be an easy to use, low-footprint monitor for HTTP(S) services. It is built using Leptos and deployed using
 Shuttle.
 
-See a [live demo](https://pingy.shuttle.rs/).
+See a [live demo](https://pingy.shuttleapp.rs/).
 
 ## Development
 

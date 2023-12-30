@@ -10,10 +10,15 @@ pub struct UrlConfig {
     pub check_interval: u64,
 }
 
+/// The result of a monitor attempt
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct MonitorResult {
+    /// The time the request was attempted
     pub timestamp: DateTime<Utc>,
+    /// The HTTP status code
     pub status_code: u16,
+    /// The time taken to send & receive the headers
+    pub latency: i64,
 }
 
 #[derive(Clone, Debug)]

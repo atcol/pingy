@@ -85,6 +85,7 @@ async fn process(
                 MonitorResult {
                     timestamp: ts,
                     status_code: res.status().into(),
+                    latency: (ts.time() - Utc::now().time()).num_milliseconds(),
                 },
             ))
             .await

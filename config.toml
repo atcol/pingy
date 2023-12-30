@@ -1,0 +1,4 @@
+[[monitors]]
+url = "https://shuttle.rs"
+method = "GET"
+check_interval = 30000

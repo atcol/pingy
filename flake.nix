@@ -24,7 +24,6 @@
         devShell = with pkgs; mkShell {
           nativeBuildInputs = [ 
             cargo
-            rustc 
             rust-bin.nightly.latest.default
             pkg-config
           ];

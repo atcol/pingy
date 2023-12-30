@@ -12,9 +12,14 @@
         naersk-lib = pkgs.callPackage naersk { };
       in
       {
-        defaultPackage = naersk-lib.buildPackage ./.;
+        defaultPackage = naersk-lib.buildPackage {
+          root = ./.;
+          nativeBuildInputs = with pkgs; [ pkg-config ];
+          buildInputs = with pkgs; [ openssl ];
+        };
         devShell = with pkgs; mkShell {
-          buildInputs = [ cargo rustc rustfmt pre-commit rustPackages.clippy pkg-config bacon openssl ];
+          nativeBuildInputs = [ cargo rustc pkg-config ];
+          buildInputs = [ rustfmt pre-commit rustPackages.clippy bacon openssl ];
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
         };
       });

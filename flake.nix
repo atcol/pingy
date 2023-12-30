@@ -14,6 +14,9 @@
           inherit system overlays;
         };
         naersk-lib = pkgs.callPackage naersk { };
+        rust = pkgs.rust-bin.nightly.latest.default.override {
+          targets = [ "wasm32-unknown-unknown" ];
+        };
       in
       {
         defaultPackage = naersk-lib.buildPackage {
@@ -24,7 +27,7 @@
         devShell = with pkgs; mkShell {
           nativeBuildInputs = [ 
             cargo
-            rust-bin.nightly.latest.default
+            rust
             pkg-config
           ];
           buildInputs = [ rustfmt pre-commit rustPackages.clippy bacon openssl ];

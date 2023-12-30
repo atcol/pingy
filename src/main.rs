@@ -1,23 +1,26 @@
-use chrono::prelude::*;
-use log::{debug, error, info};
+pub mod app;
+
+use log::{debug, info};
 use std::collections::HashMap;
-use url::Url;
 
 use actix_web::{
     get,
     web::{self, Data, ServiceConfig},
     Responder,
 };
+use leptos::*;
+use leptos_actix::{generate_route_list, LeptosRoutes};
+use pingy::app::App;
+use pingy::monitor;
 use pingy::*;
-use reqwest;
+
 use shuttle_actix_web::ShuttleActixWeb;
 use std::sync::RwLock;
 
 /// Return the latest results
-///
-#[get("/")]
+#[get("/api/monitors/results")]
 async fn get_results(state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
-    let res = state.get_results().await;
+    let res = state.get_results();
 
     Ok(web::Json(res))
 }
@@ -33,14 +36,14 @@ async fn main() -> ShuttleActixWeb<impl FnOnce(&mut ServiceConfig) + Send + Clon
         results: results.into(),
     };
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<(Url, MonitorResult)>(1);
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<(UrlConfig, MonitorResult)>(1);
 
     for conf in app_state.monitors.clone() {
         let t = tx.clone();
         tokio::spawn(async move {
             let c = conf.clone();
             debug!("Starting {} monitor for every {}", c.url, c.check_interval);
-            process(c.url, c.check_interval, t).await
+            monitor(c.clone(), t).await
         });
     }
 
@@ -57,49 +60,38 @@ async fn main() -> ShuttleActixWeb<impl FnOnce(&mut ServiceConfig) + Send + Clon
         }
     });
 
+    let leptos_config = get_configuration(Some("Cargo.toml")).await.unwrap();
+    let site_root = leptos_config.leptos_options.site_root.clone();
+    use actix_files::Files;
+    let as1 = app_state.clone();
+    let as2 = app_state.clone();
     let config = move |cfg: &mut ServiceConfig| {
+        let routes = generate_route_list(move || {
+            view! {
+                <App
+                    app_state=as1.clone()
+                />
+            }
+        });
         cfg.service(get_results);
         cfg.app_data(Data::new(app_state.clone()));
+        cfg.route("/api/{tail:.*}", leptos_actix::handle_server_fns());
+        cfg.leptos_routes(
+            leptos_config.leptos_options.to_owned(),
+            routes.to_owned(),
+            move || {
+                view! {
+                    <App
+                        app_state=as2.clone()
+                    />
+                }
+            },
+        );
+        cfg.service(Files::new("/", site_root));
     };
 
     info!("Starting actix");
     Ok(config.into())
-}
-
-async fn process(
-    url: Url,
-    timeout: u64,
-    tx: tokio::sync::mpsc::Sender<(Url, MonitorResult)>,
-) -> Result<(), String> {
-    info!("Processor initialised for {}", url);
-    loop {
-        debug!("Checking {}", url);
-        let ts = Utc::now();
-        let res = reqwest::get(url.clone())
-            .await
-            .map_err(|e| format!("Error {}", e))?;
-
-        match tx
-            .send((
-                url.clone(),
-                MonitorResult {
-                    timestamp: ts,
-                    status_code: res.status().into(),
-                    latency: (ts.time() - Utc::now().time()).num_milliseconds(),
-                },
-            ))
-            .await
-        {
-            Err(e) => {
-                error!("Couldn't send result for {}: {e}", url);
-                break;
-            }
-            _ => (),
-        }
-        info!("Sleeping for {}ms", timeout);
-        let _ = tokio::time::sleep(std::time::Duration::from_millis(timeout.into())).await;
-    }
-    Ok(())
 }
 
 #[cfg(test)]

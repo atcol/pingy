@@ -1,4 +1,11 @@
 [[monitors]]
+title = "Shuttle"
 url = "https://shuttle.rs"
+method = "GET"
+check_interval = 30000
+
+[[monitors]]
+title = "Rust"
+url = "https://www.rust-lang.org"
 method = "GET"
 check_interval = 30000

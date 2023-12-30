@@ -1,10 +1,12 @@
+pub mod app;
 use chrono::prelude::*;
-use log::info;
+use log::{debug, error, info};
 use std::sync::{Arc, RwLock};
 use std::{collections::HashMap, fs::File, io::Read};
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, serde::Deserialize, serde::Serialize)]
 pub struct UrlConfig {
+    pub title: String,
     pub url: url::Url,
     pub method: Option<String>,
     pub check_interval: u64,
@@ -24,7 +26,7 @@ pub struct MonitorResult {
 #[derive(Clone, Debug)]
 pub struct AppState {
     pub monitors: Vec<UrlConfig>,
-    pub results: Arc<RwLock<HashMap<url::Url, Vec<MonitorResult>>>>,
+    pub results: Arc<RwLock<HashMap<UrlConfig, Vec<MonitorResult>>>>,
 }
 
 #[derive(serde::Deserialize)]
@@ -43,14 +45,53 @@ impl Config {
 }
 
 impl AppState {
-    pub async fn get_results(&self) -> HashMap<url::Url, Vec<MonitorResult>> {
+    pub fn get_results(&self) -> HashMap<UrlConfig, Vec<MonitorResult>> {
         let lock = self.results.read().expect("Couldn't lock results");
-        info!("Got results {:?}", lock);
         lock.clone()
     }
 
-    pub fn record(&mut self, url: url::Url, result: MonitorResult) -> () {
+    pub fn record(&mut self, url: UrlConfig, result: MonitorResult) -> () {
         let mut map = self.results.write().expect("Couldn't unlock results");
         map.entry(url).or_insert(Vec::new()).push(result);
     }
+}
+
+/// An async task to request the given URL every `url.check_interval` ms
+pub async fn monitor(
+    url: UrlConfig,
+    tx: tokio::sync::mpsc::Sender<(UrlConfig, MonitorResult)>,
+) -> Result<(), String> {
+    info!("Processor initialised for {}", url.title);
+    loop {
+        debug!("Checking {}", url.title);
+        let ts = Utc::now();
+        let res = reqwest::get(url.url.clone())
+            .await
+            .map_err(|e| format!("Error {}", e))?;
+
+        match tx
+            .send((
+                url.clone(),
+                MonitorResult {
+                    timestamp: ts,
+                    status_code: res.status().into(),
+                    latency: (Utc::now().time() - ts.time()).num_milliseconds(),
+                },
+            ))
+            .await
+        {
+            Err(e) => {
+                error!("Couldn't send result for {}: {e}", url.url);
+                break;
+            }
+            _ => (),
+        }
+        debug!(
+            "{} monitor sleeping for {}ms",
+            url.title, url.check_interval
+        );
+        let _ =
+            tokio::time::sleep(std::time::Duration::from_millis(url.check_interval.into())).await;
+    }
+    Ok(())
 }

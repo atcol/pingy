@@ -1,4 +1,4 @@
-[![Build legacy Nix package on Ubuntu](https://github.com/atcol/pingy/actions/workflows/build_nix.yml/badge.svg)](https://github.com/atcol/pingy/actions/workflows/build_nix.yml)
+[![Nix - master](https://github.com/atcol/pingy/actions/workflows/build_nix.yml/badge.svg)](https://github.com/atcol/pingy/actions/workflows/build_nix.yml)
 
 # pingy
 A fast &amp; simple website monitor running in [Shuttle](https://shuttle.rs).
